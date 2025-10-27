@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import {
   LineChart,
   Line,
-  CartesianGrid,
   XAxis,
   YAxis,
+  CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
@@ -14,38 +14,81 @@ import {
 
 export default function HomePage() {
   const [data, setData] = useState({ flow: 0, pressure: 0 });
-  const [history, setHistory] = useState([]); // Simpan riwayat data
+  const [history, setHistory] = useState([]);
+  const [status, setStatus] = useState("🟢 Normal");
+  const [prediction, setPrediction] = useState({ flow: 0, pressure: 0 });
   const [lastUpdate, setLastUpdate] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Ambil data dari API
   const fetchData = async () => {
     setLoading(true);
-    const res = await fetch("/api/data");
-    const json = await res.json();
+    try {
+      const res = await fetch("/api/data");
+      const json = await res.json();
 
-    const now = new Date().toLocaleTimeString();
-
-    setData(json);
-    setLastUpdate(now);
-
-    // tambahkan data baru ke history (Dalam 30 data terakhir)
-    setHistory((prev) => {
-      const updated = [...prev, { time: now, flow: json.flow, pressure: json.pressure }];
-      return updated.length > 10 ? updated.slice(-10) : updated;
-    });
-
-    setLoading(false);
+      setData(json);
+      setHistory((prev) => {
+        const updated = [
+          ...prev,
+          {
+            ...json,
+            time: new Date().toLocaleTimeString("id-ID", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }),
+          },
+        ].slice(-10);
+        return updated;
+      });
+      setLastUpdate(new Date().toLocaleTimeString());
+    } catch (err) {
+      console.error("Gagal ambil data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Status otomatis
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000); // update tiap 30 detik
+    if (data.pressure > 60 || data.flow > 30) {
+      setStatus("🔴 Bahaya");
+    } else if (data.pressure > 45 || data.flow > 20) {
+      setStatus("🟠 Warning");
+    } else {
+      setStatus("🟢 Normal");
+    }
+  }, [data]);
+
+  // Prediksi sederhana (Moving Average)
+  useEffect(() => {
+    if (history.length >= 2) {
+      const avgFlow = history.reduce((sum, d) => sum + d.flow, 0) / history.length;
+      const avgPressure =
+        history.reduce((sum, d) => sum + d.pressure, 0) / history.length;
+      setPrediction({
+        flow: avgFlow.toFixed(2),
+        pressure: avgPressure.toFixed(2),
+      });
+    }
+  }, [history]);
+
+  // Fetch data otomatis saat halaman dibuka dan setiap 30 detik
+  useEffect(() => {
+    fetchData(); // langsung ambil data saat pertama kali dibuka
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);
 
+  // Tombol WhatsApp
   const sendToWhatsApp = () => {
-    const adminNumber = "6283896336395"; // ganti nomor admin kamu
-    const message = `⚠️ Peringatan Drainova\nFlow Rate: ${data.flow} L/min\nPressure: ${data.pressure} PSI\nCek kondisi sekarang!`;
+    const adminNumber = "6283896336395";
+    const message = `⚠️ Peringatan Drainova\nStatus: ${status}\nFlow Rate: ${data.flow.toFixed(
+      2
+    )} L/min\nPressure: ${data.pressure.toFixed(
+      2
+    )} PSI\nPrediksi Tekanan: ${prediction.pressure} PSI`;
     const url = `https://wa.me/${adminNumber}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
   };
@@ -59,11 +102,11 @@ export default function HomePage() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        justifyContent: "center",
         padding: "20px",
         textAlign: "center",
       }}
     >
-      {/* Logo Drainova */}
       <Image
         src="/Logo_Drainova.png"
         alt="Drainova Logo"
@@ -72,28 +115,48 @@ export default function HomePage() {
         style={{ marginBottom: "20px" }}
       />
 
-      {/* Judul */}
-      <h1
-        style={{
-          color: "#A02334",
-          fontSize: "2.2rem",
-          marginBottom: "10px",
-          fontWeight: "700",
-        }}
-      >
+      <h1 style={{ color: "#A02334", fontSize: "2.2rem", marginBottom: "10px", fontWeight: "700" }}>
         Selamat Datang di Drainova
       </h1>
-      <h2 style={{ color: "#A02334", marginBottom: "30px" }}>
+      <h2 style={{ color: "#A02334", marginBottom: "40px" }}>
         IoT POME Monitoring Dashboard
       </h2>
 
-      {/* Data Card */}
+      {/* Status */}
       <div
         style={{
           background: "white",
           borderRadius: "20px",
           boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
           padding: "20px",
+          width: "300px",
+          marginBottom: "20px",
+        }}
+      >
+        <h3 style={{ color: "#A02334" }}>Status</h3>
+        <p
+          style={{
+            fontSize: "1.5rem",
+            fontWeight: "600",
+            color:
+              status === "🔴 Bahaya"
+                ? "red"
+                : status === "🟠 Warning"
+                ? "orange"
+                : "green",
+          }}
+        >
+          {status}
+        </p>
+      </div>
+
+      {/* Flow */}
+      <div
+        style={{
+          background: "white",
+          borderRadius: "20px",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+          padding: "30px",
           width: "300px",
           marginBottom: "20px",
         }}
@@ -102,14 +165,18 @@ export default function HomePage() {
         <p style={{ fontSize: "1.5rem", fontWeight: "600", color: "#A02334" }}>
           {data.flow.toFixed(2)} L/min
         </p>
+        <p style={{ color: "#777" }}>
+          Prediksi: {prediction.flow} L/min (30 detik berikutnya)
+        </p>
       </div>
 
+      {/* Pressure */}
       <div
         style={{
           background: "white",
           borderRadius: "20px",
           boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-          padding: "20px",
+          padding: "30px",
           width: "300px",
           marginBottom: "20px",
         }}
@@ -118,7 +185,56 @@ export default function HomePage() {
         <p style={{ fontSize: "1.5rem", fontWeight: "600", color: "#A02334" }}>
           {data.pressure.toFixed(2)} PSI
         </p>
+        <p style={{ color: "#777" }}>
+          Prediksi: {prediction.pressure} PSI (30 detik berikutnya)
+        </p>
       </div>
+
+      {/* Chart */}
+      {history.length > 0 && (
+        <div
+          style={{
+            background: "white",
+            borderRadius: "20px",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+            padding: "20px",
+            marginBottom: "30px",
+            width: "90%",
+            maxWidth: "700px",
+          }}
+        >
+          <h3 style={{ color: "#A02334", marginBottom: "10px", textAlign: "center" }}>
+            Visualisasi Data
+          </h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={history}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="flow"
+                stroke="#410200"
+                strokeWidth={2}
+                dot={{ r: 4 }}
+                activeDot={{ r: 6 }}
+                name="Flow (L/min)"
+              />
+              <Line
+                type="monotone"
+                dataKey="pressure"
+                stroke="#A02334"
+                strokeWidth={2}
+                dot={{ r: 4 }}
+                activeDot={{ r: 6 }}
+                name="Pressure (PSI)"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       {/* Tombol */}
       <div style={{ display: "flex", gap: "10px" }}>
@@ -133,6 +249,7 @@ export default function HomePage() {
             borderRadius: "10px",
             cursor: "pointer",
             fontWeight: "600",
+            fontSize: "1rem",
           }}
         >
           {loading ? "Mengambil Data..." : "Perbarui Data"}
@@ -148,30 +265,16 @@ export default function HomePage() {
             borderRadius: "10px",
             cursor: "pointer",
             fontWeight: "600",
+            fontSize: "1rem",
           }}
         >
           Kirim ke WhatsApp
         </button>
       </div>
 
-      <p style={{ marginTop: "20px", color: "#A02334" }}>
+      <p style={{ marginTop: "30px", color: "#A02334" }}>
         Terakhir diperbarui: {lastUpdate}
       </p>
-
-      {/* Chart Section */}
-      <div style={{ width: "90%", maxWidth: "700px", height: "300px", marginTop: "40px" }}>
-        <ResponsiveContainer>
-          <LineChart data={history}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="flow" stroke="#A02334" name="Flow (L/min)" />
-            <Line type="monotone" dataKey="pressure" stroke="#A02334" name="Pressure (PSI)" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
     </main>
   );
 }
