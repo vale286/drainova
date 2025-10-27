@@ -24,7 +24,7 @@ export async function POST(req) {
     else if (text === '/tentang') {
       reply =
         "🤔 *Drainova itu apa, sih?*\n\n" +
-        "Drainova adalah sistem IOT yang diciptakan oleh mahasiswa *Universitas Bakrie* angkatan 2023🎓:\n" +
+        "Drainova adalah sistem IOT yang diciptakan oleh mahasiswa *Universitas Bakrie* angkatan 2023🎓:\n\n" +
         "🧑🏻‍💻 Dafit prodi Teknik Sipil | 🧑🏻‍💻 Kheiko prodi Teknik Lingkungan | 🧑🏻‍💻 Vahed prodi Manajemen | 👩🏻‍💻 Vallen prodi Sistem Informasi\n\n" +
         "Sistem ini membantu pabrik kelapa sawit memantau *flow* dan *pressure* limbah cair (*POME*) secara real-time.\n\n" +
         "Tujuannya mendeteksi potensi pencemaran lebih awal dan mendukung industri sawit yang *lebih berkelanjutan*.\n\n" +
@@ -41,10 +41,9 @@ export async function POST(req) {
         const pressure = sensorData.pressure ?? '0';
 
         const now = new Date();
-        const waktuWIB = new Date(now.getTime() + (7 * 60 * 60 * 1000));
-        const jamWIB = waktuWIB.toLocaleTimeString('id-ID', {
-          timeZone: 'Asia/Jakarta',
-          hour12: true,
+        const jamWIB = now.toLocaleTimeString('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            hour12: true,
         });
 
         reply =
@@ -64,12 +63,12 @@ export async function POST(req) {
       reply =
         "🌱 *Tips Pengolahan Limbah Ramah Lingkungan*\n\n" +
         "Berikut beberapa cara agar sistem Drainova bekerja optimal dan pengolahan limbah tetap aman:\n\n" +
-        "1️⃣ Pastikan sistem aktif dan terhubung setiap *10–15 menit sekali*.\n" +
+        "1️⃣ Pastikan sistem aktif dan terhubung setiap *10-15 menit sekali*.\n" +
         "2️⃣ Cek grafik *flow rate (L/min)* dan *pressure (PSI)* di dashboard secara rutin.\n" +
         "3️⃣ Jika flow menurun → mungkin saluran tersumbat.\n" +
         "4️⃣ Jika pressure meningkat → bisa jadi ada material padat di filter.\n" +
         "5️⃣ Bersihkan sensor minimal seminggu sekali agar pembacaan akurat.\n\n" +
-        "🔍 Catatan: Sistem Drainova hanya memantau *flow* & *pressure*, bukan pH.\n\n" +
+        "🔍 Catatan: Sistem Drainova fokus pada pemantauan *flow* & *pressure*.\n\n" +
         "Pemantauan teratur bisa meningkatkan efisiensi hingga *85%*! 🚀";
     }
 
@@ -84,13 +83,13 @@ export async function POST(req) {
         "• Padatan tersuspensi (TSS), COD, dan BOD tinggi\n" +
         "• pH asam (3,3-4,6) dan suhu 60-80°C 🌡️\n\n" +
         "🌍 *Dampak Lingkungan:*\n" +
-        "• POME memiliki *BOD hingga 25.000 mg/L* dan *COD hingga 50.000 mg/L* jauh di atas baku mutu (KLHK, 2020).\n" +
+        "• POME memiliki BOD hingga 25.000 mg/L dan COD hingga 50.000 mg/L jauh di atas baku mutu (KLHK, 2020).\n" +
         "• Jika tidak diolah, dapat mencemari air tanah dan menghasilkan gas metana (CH₄), penyebab efek rumah kaca.\n\n" +
         "💼 *Kerugian bagi Industri Sawit:*\n" +
-        "Menurut *Kementerian Lingkungan Hidup dan Kehutanan* dan *Sawit Watch (2022)*:\n" +
-        "• Denda pencemaran bisa mencapai *Rp500 juta–Rp1 miliar*.\n" +
-        "• Potensi *pencabutan izin operasional* pabrik.\n" +
-        "• Hilangnya sertifikasi *RSPO/ISPO* yang menurunkan nilai ekspor.\n\n" +
+        "Menurut Kementerian Lingkungan Hidup dan Kehutanan dan Sawit Watch (2022):\n" +
+        "• Denda pencemaran bisa mencapai Rp500 juta-Rp1 miliar.\n" +
+        "• Potensi pencabutan izin operasional pabrik.\n" +
+        "• Hilangnya sertifikasi RSPO/ISPO yang menurunkan nilai ekspor.\n\n" +
         "📚 Sumber: [KLHK 2020](https://www.menlhk.go.id/), [Sawit Watch 2022](https://sawitwatch.or.id/), [RSPO Guidelines 2023](https://rspo.org/)\n\n" +
         "💡 Drainova hadir membantu industri sawit agar tetap produktif *tanpa merusak lingkungan.* 🌿";
     }
