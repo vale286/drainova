@@ -2,9 +2,13 @@
 
 export async function POST(req) {
   try {
+    // ⬇️ Tambahkan log di sini, di awal fungsi POST
     const body = await req.json();
+    console.log("Received body:", body);
+
     const chatId = body.message?.chat?.id;
     const text = body.message?.text?.toLowerCase() || "";
+    console.log("Chat ID:", chatId, "Text:", text);
 
     let reply = "Halo! Saya DrainovaBot 🤖 siap bantu pantau dan edukasi limbah sawit.";
 
@@ -23,7 +27,7 @@ export async function POST(req) {
       reply = "🌱 Tips: Gunakan limbah padat sawit sebagai pupuk kompos alami untuk tanaman sekitar.";
     }
 
-    // Kirim balasan ke Telegram
+    // kirim balasan ke Telegram
     await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -31,13 +35,13 @@ export async function POST(req) {
     });
 
     return new Response("OK", { status: 200 });
-  } catch (error) {
-    console.error("Error in Telegram route:", error);
-    return new Response("Error", { status: 500 });
+  } catch (err) {
+    console.error("Telegram error:", err); // ⬅️ log error juga
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }
 
-// Tambahkan handler GET agar tidak error 405
+// biar kalau diakses lewat browser GET nggak error
 export async function GET() {
   return new Response("This endpoint is for Telegram Bot webhook", { status: 200 });
 }
