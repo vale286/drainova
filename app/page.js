@@ -1,6 +1,15 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { initializeApp } from "firebase/app";
+import {
+  getDatabase,
+  ref,
+  onValue,
+  set,
+  push,
+  serverTimestamp,
+} from "firebase/database";
 import {
   LineChart,
   Line,
@@ -12,45 +21,61 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+// Konfigurasi Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyBV_YFBsc0d0H33pMrN6_v91yfR3rib4Zg",
+  authDomain: "drainova-90467.firebaseapp.com",
+  projectId: "drainova-90467",
+  storageBucket: "drainova-90467.firebasestorage.app",
+  messagingSenderId: "769734268201",
+  appId: "1:769734268201:web:180b292ff1bd605bd79338",
+  measurementId: "G-J3V3WMCGQ0"
+};
+
+// Inisialisasi Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 export default function HomePage() {
   const [data, setData] = useState({ flow: 0, pressure: 0 });
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState("🟢 Normal");
   const [prediction, setPrediction] = useState({ flow: 0, pressure: 0 });
+  const [insight, setInsight] = useState("");
   const [lastUpdate, setLastUpdate] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  // Ambil data dari API
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/data");
-      const json = await res.json();
+  // 🔹 Ambil data real-time dari Firebase
+  useEffect(() => {
+    const dataRef = ref(db, "sensorData");
+    onValue(dataRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        const latest = Object.values(val).slice(-1)[0];
+        setData({ flow: latest.flow, pressure: latest.pressure });
+        setLastUpdate(
+          new Date(latest.timestamp || Date.now()).toLocaleTimeString("id-ID")
+        );
 
-      setData(json);
-      setHistory((prev) => {
-        const updated = [
-          ...prev,
-          {
-            ...json,
-            time: new Date().toLocaleTimeString("id-ID", {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            }),
-          },
-        ].slice(-10);
-        return updated;
-      });
-      setLastUpdate(new Date().toLocaleTimeString());
-    } catch (err) {
-      console.error("Gagal ambil data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+        // Simpan ke riwayat (max 10 data)
+        setHistory((prev) => {
+          const updated = [
+            ...prev,
+            {
+              flow: latest.flow,
+              pressure: latest.pressure,
+              time: new Date(latest.timestamp || Date.now()).toLocaleTimeString(
+                "id-ID",
+                { hour: "2-digit", minute: "2-digit", second: "2-digit" }
+              ),
+            },
+          ].slice(-10);
+          return updated;
+        });
+      }
+    });
+  }, []);
 
-  // Status otomatis
+  // 🔹 Status otomatis
   useEffect(() => {
     if (data.pressure > 60 || data.flow > 30) {
       setStatus("🔴 Bahaya");
@@ -61,7 +86,7 @@ export default function HomePage() {
     }
   }, [data]);
 
-  // Prediksi sederhana (Moving Average)
+  // 🔹 Prediksi sederhana (Moving Average)
   useEffect(() => {
     if (history.length >= 2) {
       const avgFlow = history.reduce((sum, d) => sum + d.flow, 0) / history.length;
@@ -74,21 +99,36 @@ export default function HomePage() {
     }
   }, [history]);
 
-  // Fetch data otomatis saat halaman dibuka dan setiap 30 detik
+  // 🔹 Insight otomatis berdasarkan data & referensi tekanan normal limbah POME
   useEffect(() => {
-    fetchData(); // langsung ambil data saat pertama kali dibuka
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    if (data.pressure <= 45 && data.flow <= 20) {
+      setInsight("Aliran stabil dan tekanan normal ✅");
+    } else if (data.pressure <= 60 && data.flow <= 30) {
+      setInsight("Tingkat tekanan mulai meningkat ⚠️ Periksa filter atau pompa.");
+    } else {
+      setInsight("Tekanan tinggi! 🚨 Kemungkinan sumbatan atau overpressure.");
+    }
+  }, [data]);
 
-  // Tombol WhatsApp
+  // 🔹 Simpan data manual (opsional, misalnya dari simulasi)
+  const pushData = async () => {
+    const newData = {
+      flow: parseFloat((Math.random() * 35).toFixed(2)),
+      pressure: parseFloat((Math.random() * 70).toFixed(2)),
+      timestamp: serverTimestamp(),
+    };
+    await push(ref(db, "sensorData"), newData);
+  };
+
+  // 🔹 Tombol WhatsApp
   const sendToWhatsApp = () => {
     const adminNumber = "6283896336395";
-    const message = `⚠️ Peringatan Drainova\nStatus: ${status}\nFlow Rate: ${data.flow.toFixed(
-      2
-    )} L/min\nPressure: ${data.pressure.toFixed(
-      2
-    )} PSI\nPrediksi Tekanan: ${prediction.pressure} PSI`;
+    const message = `Peringatan Drainova
+Status: ${status}
+Flow Rate: ${data.flow.toFixed(2)} L/min
+Pressure: ${data.pressure.toFixed(2)} PSI
+Prediksi Tekanan: ${prediction.pressure} PSI
+Insight: ${insight}`;
     const url = `https://wa.me/${adminNumber}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
   };
@@ -148,6 +188,7 @@ export default function HomePage() {
         >
           {status}
         </p>
+        <p style={{ color: "#555" }}>{insight}</p>
       </div>
 
       {/* Flow */}
@@ -239,8 +280,7 @@ export default function HomePage() {
       {/* Tombol */}
       <div style={{ display: "flex", gap: "10px" }}>
         <button
-          onClick={fetchData}
-          disabled={loading}
+          onClick={pushData}
           style={{
             backgroundColor: "#A02334",
             color: "white",
@@ -252,7 +292,7 @@ export default function HomePage() {
             fontSize: "1rem",
           }}
         >
-          {loading ? "Mengambil Data..." : "Perbarui Data"}
+          Tambah Data Simulasi
         </button>
 
         <button
@@ -272,7 +312,7 @@ export default function HomePage() {
         </button>
       </div>
 
-      <p style={{ marginTop: "30px", color: "#A02334" }}>
+      <p style={{ marginTop: "30px", color: "#ffffff" }}>
         Terakhir diperbarui: {lastUpdate}
       </p>
     </main>
