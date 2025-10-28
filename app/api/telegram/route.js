@@ -34,8 +34,8 @@ export async function POST(req) {
         "🧑🏻‍💻 Kheiko (Teknik Lingkungan)\n" +
         "🧑🏻‍💻 Vahed (Manajemen)\n" +
         "👩🏻‍💻 Vallen (Sistem Informasi)\n\n" +
-        "Sistem ini membantu pabrik kelapa sawit memantau *flow* dan *pressure* limbah cair (*POME*) secara real-time 🌿💧\n" +
-        "Tujuannya: mendeteksi potensi pencemaran lebih awal dan mendukung industri sawit *yang lebih berkelanjutan*.\n\n" +
+        "Sistem ini membantu pabrik kelapa sawit memantau *flow* dan *pressure* limbah cair (*POME*) secara real-time. 🌿💧\n\n" +
+        "Tujuannya mendeteksi potensi pencemaran lebih awal dan mendukung industri sawit *yang lebih berkelanjutan*.\n\n" +
         "🔗 Dashboard: https://drainovaiot.vercel.app";
     }
 
@@ -99,7 +99,7 @@ export async function POST(req) {
         "• COD bisa mencapai 50.000 mg/L (baku mutu: <350 mg/L)\n" +
         "• Jika tidak diolah, sehingga mencemari air tanah & menghasilkan gas metana (CH₄)\n\n" +
         "💼 *Risiko bagi industri:*\n" +
-        "• Denda Rp500 juta-Rp1 miliar (Kementeriam Lingkungan Hidup dan Kehutanan, 2022)\n" +
+        "• Denda Rp500 juta-Rp1 miliar (Kementerian Lingkungan Hidup dan Kehutanan, 2022)\n" +
         "• Potensi pencabutan izin operasional\n" +
         "• Kehilangan sertifikasi RSPO/ISPO\n\n" +
         "📚 Sumber: [Kementerian Lingkungan Hidup dan Kehutanan 2020](https://www.menlhk.go.id/), [Sawit Watch 2022](https://sawitwatch.or.id/), [RSPO Guidelines 2023](https://rspo.org/)\n\n" +
