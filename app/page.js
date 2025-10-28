@@ -6,7 +6,6 @@ import {
   getDatabase,
   ref,
   onValue,
-  set,
   push,
   serverTimestamp,
 } from "firebase/database";
@@ -21,7 +20,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-// Konfigurasi Firebase
+// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyBV_YFBsc0d0H33pMrN6_v91yfR3rib4Zg",
   authDomain: "drainova-90467.firebaseapp.com",
@@ -29,10 +28,9 @@ const firebaseConfig = {
   storageBucket: "drainova-90467.firebasestorage.app",
   messagingSenderId: "769734268201",
   appId: "1:769734268201:web:180b292ff1bd605bd79338",
-  measurementId: "G-J3V3WMCGQ0"
+  measurementId: "G-J3V3WMCGQ0",
 };
 
-// Inisialisasi Firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
@@ -42,85 +40,81 @@ export default function HomePage() {
   const [status, setStatus] = useState("🟢 Normal");
   const [prediction, setPrediction] = useState({ flow: 0, pressure: 0 });
   const [insight, setInsight] = useState("");
-  const [lastUpdate, setLastUpdate] = useState("");
+  const [lastUpdate, setLastUpdate] = useState("-");
 
-  // 🔹 Ambil data real-time dari Firebase
+  // Ambil data real-time dari Firebase
   useEffect(() => {
     const dataRef = ref(db, "sensorData");
     onValue(dataRef, (snapshot) => {
       const val = snapshot.val();
-      if (val) {
-        const latest = Object.values(val).slice(-1)[0];
-        setData({ flow: latest.flow, pressure: latest.pressure });
-        setLastUpdate(
-          new Date(latest.timestamp || Date.now()).toLocaleTimeString("id-ID")
-        );
+      if (!val) return;
 
-        // Simpan ke riwayat (max 10 data)
-        setHistory((prev) => {
-          const updated = [
-            ...prev,
-            {
-              flow: latest.flow,
-              pressure: latest.pressure,
-              time: new Date(latest.timestamp || Date.now()).toLocaleTimeString(
-                "id-ID",
-                { hour: "2-digit", minute: "2-digit", second: "2-digit" }
-              ),
-            },
-          ].slice(-10);
-          return updated;
-        });
-      }
+      const allData = Object.values(val);
+      const latest = allData.slice(-1)[0];
+      const ts = latest.timestamp ? latest.timestamp : Date.now();
+
+      setData({ flow: latest.flow, pressure: latest.pressure });
+      setLastUpdate(new Date(ts).toLocaleTimeString("id-ID"));
+
+      const updated = allData
+        .slice(-10)
+        .map((d) => ({
+          flow: d.flow,
+          pressure: d.pressure,
+          time: new Date(d.timestamp || Date.now()).toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+        }));
+      setHistory(updated);
     });
   }, []);
 
-  // 🔹 Status otomatis
+  // Status otomatis
   useEffect(() => {
-    if (data.pressure > 60 || data.flow > 30) {
-      setStatus("🔴 Bahaya");
-    } else if (data.pressure > 45 || data.flow > 20) {
-      setStatus("🟠 Warning");
-    } else {
-      setStatus("🟢 Normal");
-    }
+    if (data.pressure > 60 || data.flow > 30) setStatus("🔴 Bahaya");
+    else if (data.pressure > 45 || data.flow > 20) setStatus("🟠 Warning");
+    else setStatus("🟢 Normal");
   }, [data]);
 
-  // 🔹 Prediksi sederhana (Moving Average)
+  // Prediksi sederhana (moving average)
   useEffect(() => {
-    if (history.length >= 2) {
-      const avgFlow = history.reduce((sum, d) => sum + d.flow, 0) / history.length;
-      const avgPressure =
-        history.reduce((sum, d) => sum + d.pressure, 0) / history.length;
-      setPrediction({
-        flow: avgFlow.toFixed(2),
-        pressure: avgPressure.toFixed(2),
-      });
-    }
+    if (history.length < 2) return;
+    const avgFlow = history.reduce((a, b) => a + b.flow, 0) / history.length;
+    const avgPressure = history.reduce((a, b) => a + b.pressure, 0) / history.length;
+    setPrediction({
+      flow: avgFlow.toFixed(2),
+      pressure: avgPressure.toFixed(2),
+    });
   }, [history]);
 
-  // 🔹 Insight otomatis berdasarkan data & referensi tekanan normal limbah POME
+  // 🔹 Insight
   useEffect(() => {
-    if (data.pressure <= 45 && data.flow <= 20) {
+    if (data.pressure <= 45 && data.flow <= 20)
       setInsight("Aliran stabil dan tekanan normal ✅");
-    } else if (data.pressure <= 60 && data.flow <= 30) {
-      setInsight("Tingkat tekanan mulai meningkat ⚠️ Periksa filter atau pompa.");
-    } else {
-      setInsight("Tekanan tinggi! 🚨 Kemungkinan sumbatan atau overpressure.");
-    }
+    else if (data.pressure <= 60 && data.flow <= 30)
+      setInsight("Tekanan mulai meningkat ⚠️ Periksa filter atau pompa.");
+    else setInsight("Tekanan tinggi! 🚨 Kemungkinan sumbatan atau overpressure.");
   }, [data]);
 
-  // 🔹 Simpan data manual (opsional, misalnya dari simulasi)
+  // 🔹 Tambah data simulasi
   const pushData = async () => {
     const newData = {
       flow: parseFloat((Math.random() * 35).toFixed(2)),
       pressure: parseFloat((Math.random() * 70).toFixed(2)),
-      timestamp: serverTimestamp(),
+      timestamp: Date.now(),
     };
-    await push(ref(db, "sensorData"), newData);
+    await push(ref(db, "sensorData"), { ...newData, timestamp: serverTimestamp() });
+
+    // update tampilan langsung
+    setData({ flow: newData.flow, pressure: newData.pressure });
+    setLastUpdate(new Date().toLocaleTimeString("id-ID"));
+    setHistory((prev) =>
+      [...prev, { ...newData, time: new Date().toLocaleTimeString("id-ID") }].slice(-10)
+    );
   };
 
-  // 🔹 Tombol WhatsApp
   const sendToWhatsApp = () => {
     const adminNumber = "6283896336395";
     const message = `Peringatan Drainova
@@ -155,14 +149,14 @@ Insight: ${insight}`;
         style={{ marginBottom: "20px" }}
       />
 
-      <h1 style={{ color: "#A02334", fontSize: "2.2rem", marginBottom: "10px", fontWeight: "700" }}>
+      <h1 style={{ color: "#A02334", fontSize: "2.2rem", fontWeight: "700" }}>
         Selamat Datang di Drainova
       </h1>
-      <h2 style={{ color: "#A02334", marginBottom: "40px" }}>
+      <h2 style={{ color: "#A02334", marginBottom: "30px" }}>
         IoT POME Monitoring Dashboard
       </h2>
 
-      {/* Status */}
+      {/* STATUS */}
       <div
         style={{
           background: "white",
@@ -191,7 +185,7 @@ Insight: ${insight}`;
         <p style={{ color: "#555" }}>{insight}</p>
       </div>
 
-      {/* Flow */}
+      {/* FLOW */}
       <div
         style={{
           background: "white",
@@ -206,12 +200,10 @@ Insight: ${insight}`;
         <p style={{ fontSize: "1.5rem", fontWeight: "600", color: "#A02334" }}>
           {data.flow.toFixed(2)} L/min
         </p>
-        <p style={{ color: "#777" }}>
-          Prediksi: {prediction.flow} L/min (30 detik berikutnya)
-        </p>
+        <p style={{ color: "#777" }}>Prediksi: {prediction.flow} L/min</p>
       </div>
 
-      {/* Pressure */}
+      {/* PRESSURE */}
       <div
         style={{
           background: "white",
@@ -226,12 +218,10 @@ Insight: ${insight}`;
         <p style={{ fontSize: "1.5rem", fontWeight: "600", color: "#A02334" }}>
           {data.pressure.toFixed(2)} PSI
         </p>
-        <p style={{ color: "#777" }}>
-          Prediksi: {prediction.pressure} PSI (30 detik berikutnya)
-        </p>
+        <p style={{ color: "#777" }}>Prediksi: {prediction.pressure} PSI</p>
       </div>
 
-      {/* Chart */}
+      {/* CHART */}
       {history.length > 0 && (
         <div
           style={{
@@ -244,32 +234,19 @@ Insight: ${insight}`;
             maxWidth: "700px",
           }}
         >
-          <h3 style={{ color: "#A02334", marginBottom: "10px", textAlign: "center" }}>
-            Visualisasi Data
-          </h3>
+          <h3 style={{ color: "#A02334", marginBottom: "10px" }}>Visualisasi Data</h3>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={history}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="time" />
               <YAxis />
               <Tooltip />
               <Legend />
-              <Line
-                type="monotone"
-                dataKey="flow"
-                stroke="#410200"
-                strokeWidth={2}
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
-                name="Flow (L/min)"
-              />
+              <Line type="monotone" dataKey="flow" stroke="#410200" name="Flow (L/min)" />
               <Line
                 type="monotone"
                 dataKey="pressure"
                 stroke="#A02334"
-                strokeWidth={2}
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
                 name="Pressure (PSI)"
               />
             </LineChart>
@@ -277,7 +254,7 @@ Insight: ${insight}`;
         </div>
       )}
 
-      {/* Tombol */}
+      {/* BUTTONS */}
       <div style={{ display: "flex", gap: "10px" }}>
         <button
           onClick={pushData}
@@ -289,10 +266,9 @@ Insight: ${insight}`;
             borderRadius: "10px",
             cursor: "pointer",
             fontWeight: "600",
-            fontSize: "1rem",
           }}
         >
-          Tambah Data Simulasi
+         Perbarui Data
         </button>
 
         <button
@@ -305,14 +281,13 @@ Insight: ${insight}`;
             borderRadius: "10px",
             cursor: "pointer",
             fontWeight: "600",
-            fontSize: "1rem",
           }}
         >
           Kirim ke WhatsApp
         </button>
       </div>
 
-      <p style={{ marginTop: "30px", color: "#ffffff" }}>
+      <p style={{ marginTop: "30px", color: "#410200" }}>
         Terakhir diperbarui: {lastUpdate}
       </p>
     </main>
