@@ -1,52 +1,70 @@
-// app/api/data/route.js
-import { db } from "@/app/firebaseConfig";
-import { collection, addDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
+import { adminDb } from "@/app/firebaseAdmin";
 
+export const maxDuration = 10;
+
+// Data sementara (fallback)
 let latestData = {
   pressure: 0,
   flow: 0,
   time: new Date().toISOString(),
 };
 
-// GET: Ambil data terbaru dari Firestore
+// Ambil data terbaru dari Realtime Database
 export async function GET() {
   try {
-    const q = query(collection(db, "sensorData"), orderBy("time", "desc"), limit(1));
-    const querySnapshot = await getDocs(q);
+    const snapshot = await adminDb.ref("sensorData/history").limitToLast(1).get();
 
-    if (!querySnapshot.empty) {
-      querySnapshot.forEach((doc) => {
-        latestData = doc.data();
-      });
+    if (snapshot.exists()) {
+      const val = Object.values(snapshot.val())[0];
+      latestData = val;
     }
 
-    return Response.json(latestData);
+    return new Response(JSON.stringify(latestData), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
-    console.error("Error fetching data:", error);
-    return Response.json({ error: "Failed to fetch data" }, { status: 500 });
+    console.error("[GET] Error fetching data:", error);
+    return new Response(
+      JSON.stringify({ error: "Failed to fetch data", details: error.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
 
-// POST: Simpan data dari ESP32 ke Firestore
+// Simpan data baru ke Realtime Database 
 export async function POST(req) {
   try {
     const body = await req.json();
+    const { pressure, flow } = body;
 
-    // Simpan data baru ke variabel dan Firestore
+    if (typeof pressure !== "number" || typeof flow !== "number") {
+      return new Response(
+        JSON.stringify({ error: "Invalid data types. Expected numbers." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Simpan ke Realtime Database
     latestData = {
-      pressure: body.pressure || 0,
-      flow: body.flow || 0,
+      pressure,
+      flow,
       time: new Date().toISOString(),
     };
 
-    await addDoc(collection(db, "sensorData"), latestData);
+    await adminDb.ref("sensorData/history").push(latestData);
 
-    console.log("✅ Data tersimpan di Firestore:", latestData);
+    console.log("Data baru disimpan di RTDB, nih:", latestData);
 
-    return Response.json({ message: "Data stored successfully" });
+    return new Response(
+      JSON.stringify({ message: "Data logged successfully", data: latestData }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
   } catch (error) {
-    console.error("❌ Error parsing or saving data:", error);
-    return Response.json({ error: "Invalid JSON" }, { status: 400 });
+    console.error("[POST] Server error:", error);
+    return new Response(
+      JSON.stringify({ error: "Server error", details: error.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
-
